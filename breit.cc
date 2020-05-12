@@ -7,6 +7,9 @@
 // Modified by Rene Brun and Axel Naumann to put the Pythia::event
 // into a TTree.
 
+// DIRE includes.
+#include "Dire/Dire.h"
+
 // Header file to access Pythia 8 program elements.
 #include "Pythia8/Pythia.h"
 
@@ -110,6 +113,9 @@ int main() {
   Pythia pythia;
   Event& event = pythia.event;
 
+  Dire dire;
+  //dire.init(pythia, "dis.cmnd");
+  
   pythia.readString("Random:setSeed=on");
   pythia.readString("Random:seed=0");
 
@@ -118,22 +124,22 @@ int main() {
 
   pythia.readString("Beams:idA=2212");
 
-  pythia.settings.parm("Beams:eB", eElectron);
-  pythia.settings.parm("Beams:eA", eProton);
+   pythia.settings.parm("Beams:eB", eElectron);
+   pythia.settings.parm("Beams:eA", eProton);
 
-  pythia.readString("Beams:frameType=2");
+   pythia.readString("Beams:frameType=2");
   pythia.readString("Init:showChangedSettings=on");
   pythia.readString("Main:timesAllowErrors=10000");
 
   //neutral current
-  pythia.readString("WeakBosonExchange:ff2ff(t:gmZ) = on");
+   pythia.readString("WeakBosonExchange:ff2ff(t:gmZ) = on");
   //charged current
   // pythia.readString("WeakBosonExchange:ff2ff(t:W) = on");
 
-  pythia.settings.parm("PhaseSpace:Q2Min",Q2min);
+  // pythia.settings.parm("PhaseSpace:Q2Min",Q2min);
   //pythia.readString("SpaceShower:pTmaxMatch=2");
-  pythia.readString("PDF:lepton=off");
-  pythia.readString("TimeShower:QEDshowerByL=off");
+  // pythia.readString("PDF:lepton=off");
+  //pythia.readString("TimeShower:QEDshowerByL=off");
 
   pythia.init();
 
@@ -204,6 +210,32 @@ int main() {
   // Begin event loop. Generate event. Skip if error.
   for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
     if (!pythia.next()) continue;
+
+    // Get event weight(s).
+    /*    double evtweight = pythia.info.weight();
+    // Do not print zero-weight events.
+    if ( evtweight == 0. ) continue;
+    // Retrieve the shower weight.
+    dire.weightsPtr->calcWeight(0.);
+    dire.weightsPtr->reset();
+    double wt = dire.weightsPtr->getShowerWeight();
+    if (abs(wt) > 1e3) {
+      cout << scientific << setprecision(8)
+	   << "Warning in DIRE main program dire00.cc: Large shower weight wt="
+	   << wt << endl;
+    if (abs(wt) > 1e4) {
+      cout << "Warning in DIRE main program dire00.cc: Shower weight larger"
+	   << " than 10000. Discard event with rare shower weight fluctuation."
+	   << endl;
+      evtweight = 0.;
+    }
+   }
+    // Do not print zero-weight events.
+   if ( evtweight == 0. ) continue;
+
+   evtweight *= wt;
+    */
+
     fjInputs.clear();
     fjInputs_breit.clear();
     //empty vectors
@@ -393,7 +425,7 @@ int main() {
       jet_p.push_back(p_jet);
       jet_e.push_back(eJ);
       jet_z.push_back(z);
-      jet_z_jet.push_back(z_jet);
+      jet_z_jet.push_back(z_e);
       
       jet_rap.push_back(y_jet);
       jet_eta.push_back( y_jet);
