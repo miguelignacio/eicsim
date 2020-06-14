@@ -8,7 +8,7 @@
 // into a TTree.
 
 // DIRE includes.
-#include "Dire/Dire.h"
+//#include "Dire/Dire.h"
 
 // Header file to access Pythia 8 program elements.
 #include "Pythia8/Pythia.h"
@@ -99,7 +99,7 @@ fastjet::PseudoJet rotateZ(const fastjet::PseudoJet p, const double& psi){
 int main() {
 
   
-  int nEvent    = 5e4;
+  int nEvent    = 5e3;
   int    power   = -1;     // -1 = anti-kT; 0 = C/A; 1 = kT.
   double R       =  1.0;  // Jet size.
   double pTMin   = 0.0;
@@ -107,13 +107,13 @@ int main() {
 
   double eProton   = 100.0;
   double eElectron = 10;
-  double Q2min     = 25.0;
+  double Q2min     = 100.0;
 
   // Generator. Shorthand for event.
   Pythia pythia;
   Event& event = pythia.event;
 
-  Dire dire;
+  //Dire dire;
   //dire.init(pythia, "dis.cmnd");
   
   pythia.readString("Random:setSeed=on");
@@ -124,10 +124,10 @@ int main() {
 
   pythia.readString("Beams:idA=2212");
 
-   pythia.settings.parm("Beams:eB", eElectron);
-   pythia.settings.parm("Beams:eA", eProton);
+  pythia.settings.parm("Beams:eB", eElectron);
+  pythia.settings.parm("Beams:eA", eProton);
 
-   pythia.readString("Beams:frameType=2");
+  pythia.readString("Beams:frameType=2");
   pythia.readString("Init:showChangedSettings=on");
   pythia.readString("Main:timesAllowErrors=10000");
 
@@ -136,11 +136,9 @@ int main() {
   //charged current
   // pythia.readString("WeakBosonExchange:ff2ff(t:W) = on");
 
-  // pythia.settings.parm("PhaseSpace:Q2Min",Q2min);
-  //pythia.readString("SpaceShower:pTmaxMatch=2");
-  // pythia.readString("PDF:lepton=off");
-  //pythia.readString("TimeShower:QEDshowerByL=off");
-
+  pythia.settings.parm("PhaseSpace:Q2Min",Q2min);
+  pythia.readString("SpaceShower:pTmaxMatch=2");
+  pythia.readString("SpaceShower:dipoleRecoil=on");
   pythia.init();
 
   fastjet::RecombinationScheme recomb_scheme = fastjet::E_scheme ;   //WTA_modp_sche
@@ -150,7 +148,7 @@ int main() {
   std::vector <fastjet::PseudoJet> fjInputs_breit;
 
   // Set up the ROOT TFile and TTree.
-  TFile *file = TFile::Open("pytree.root","recreate");
+  TFile *file = TFile::Open("breit.root","recreate");
   TTree *T = new TTree("T","jet Tree");
 
 
@@ -165,6 +163,8 @@ int main() {
 
   std::vector<float> jet_pt;
   std::vector<float> jet_qt;
+  std::vector<float> jet_qt_up;
+  std::vector<float> jet_qt_down;
   
   std::vector<float> jet_phi;
   std::vector<float> jet_rap;
@@ -173,9 +173,13 @@ int main() {
   std::vector<float> jet_p;
   std::vector<float> jet_e;
   std::vector<float> jet_z;
-  std::vector<float> jet_z_jet;
-  
+  std::vector<float> jet_z_up;
+  std::vector<float> jet_z_down;        
 
+  std::vector<float> jet_lab_eta;
+  std::vector<float> jet_lab_e;
+  std::vector<float> jet_lab_pt;
+  
   T->Branch("ntrials", &ntrials, "ntrials/I");
   T->Branch("evid", &evid, "evid/I");
   T->Branch("xsec", &xsec, "xsec/F");
@@ -196,52 +200,35 @@ int main() {
   T->Branch("n_charged", &n_charged);
   T->Branch("jet_pt", &jet_pt);
   T->Branch("jet_qt", &jet_qt);
+  T->Branch("jet_qt_down", &jet_qt_down);
+  T->Branch("jet_qt_up", &jet_qt_up);
   
   T->Branch("jet_phi", &jet_phi);
   T->Branch("jet_rap",&jet_rap);
   T->Branch("jet_eta", &jet_eta);
+  T->Branch("jet_theta", &jet_theta);
   T->Branch("jet_p", &jet_p);
   T->Branch("jet_e", &jet_e);
   T->Branch("jet_z", &jet_z);
-  T->Branch("jet_z_jet", &jet_z_jet);
+  T->Branch("jet_z_up", &jet_z_up);
+  T->Branch("jet_z_down", &jet_z_down);         
   
-  
+  T->Branch("jet_lab_pt", &jet_lab_pt);
+  T->Branch("jet_lab_eta", &jet_lab_eta);
+  T->Branch("jet_lab_e" ,  &jet_lab_e);
 
   // Begin event loop. Generate event. Skip if error.
   for (int iEvent = 0; iEvent < nEvent; ++iEvent) {
     if (!pythia.next()) continue;
-
-    // Get event weight(s).
-    /*    double evtweight = pythia.info.weight();
-    // Do not print zero-weight events.
-    if ( evtweight == 0. ) continue;
-    // Retrieve the shower weight.
-    dire.weightsPtr->calcWeight(0.);
-    dire.weightsPtr->reset();
-    double wt = dire.weightsPtr->getShowerWeight();
-    if (abs(wt) > 1e3) {
-      cout << scientific << setprecision(8)
-	   << "Warning in DIRE main program dire00.cc: Large shower weight wt="
-	   << wt << endl;
-    if (abs(wt) > 1e4) {
-      cout << "Warning in DIRE main program dire00.cc: Shower weight larger"
-	   << " than 10000. Discard event with rare shower weight fluctuation."
-	   << endl;
-      evtweight = 0.;
-    }
-   }
-    // Do not print zero-weight events.
-   if ( evtweight == 0. ) continue;
-
-   evtweight *= wt;
-    */
 
     fjInputs.clear();
     fjInputs_breit.clear();
     //empty vectors
     jet_pt.clear();
     jet_qt.clear();
-   
+    jet_qt_up.clear();
+    jet_qt_down.clear();
+    
     jet_phi.clear();
     jet_rap.clear();
     jet_eta.clear();
@@ -249,7 +236,12 @@ int main() {
     jet_p.clear();
     jet_e.clear();
     jet_z.clear();
-    jet_z_jet.clear();
+    jet_z_up.clear();
+    jet_z_down.clear();
+    
+    jet_lab_pt.clear();
+    jet_lab_eta.clear();
+    jet_lab_e.clear();
     
     quark_id = 0;
     quark_e = 0;
@@ -268,9 +260,29 @@ int main() {
     ntrials = pythia.info.nTried();
 
     // four-momenta of proton, electron, virtual photon/Z^0/W^+-.
+
+    // get electron index:
+    int e_index =6 ;
+    float maxpt = 0;
+    for (int i = 0; i < event.size(); i++)
+      {
+	if (event[i].isFinal() && event[i].id()==11)
+	  {
+	    double pt = TMath::Sqrt(event[i].px()*event[i].px() + event[i].py()*event[i].py()) ;
+	    if(pt>maxpt){
+	        e_index = i;
+		maxpt = pt;
+	    }
+        }
+      }
+    //std::cout << " e index " << e_index << std::endl;
+    //std::cout <<  event[e_index].px() << " " << event[e_index].py() << " " << event[e_index].pz() << std::endl;
+    //std::cout <<  event[6].px() << " " << event[6].py() << " " << event[6].pz() << std::endl;
+    //e_index = 6;
+    
     Vec4 pProton = event[1].p();
     Vec4 peIn = event[4].p();
-    Vec4 peOut = event[6].p();
+    Vec4 peOut = event[e_index].p();
     Vec4 pPhoton = peIn - peOut;
     Vec4 ptot_had = pPhoton + pProton;
 
@@ -300,10 +312,10 @@ int main() {
     //checkout gamma after boosting and rotations:
     //std::cout << " boosted_gamma" << boosted_gamma.px() << " " << boosted_gamma.py() << " " << boosted_gamma.pz() << " " << boosted_gamma.e() << std::endl;
     //std::cout << " boosted_proton " << boosted_proton.px() << " " << boosted_proton.py() << " " << boosted_proton.pz() << " " << boosted_proton.e() << std::endl;  
-     //std::cout << "Q2 " << Q2  << " Q " << TMath::Sqrt(Q2) << std::endl;
+    //std::cout << "Q2 " << Q2  << " Q " << TMath::Sqrt(Q2) << std::endl;
     //Q is the pz of the photon in the breit frame: check.
 
-    // get struck quark index
+    // get struck quark index:
     int q;
     for (int i = 0; i < event.size(); i++)
       {
@@ -320,9 +332,9 @@ int main() {
     quark = rotateY(quark, -theta_p);
 
     fastjet::PseudoJet initial_quark(event[3].px(), event[3].py(), event[3].pz(),event[3].e());
-    //initial_quark = boost(initial_quark, boost_vector);
-    //initial_quark = rotateZ(initial_quark, -phi_p);
-    //initial_quark = rotateY(initial_quark, -theta_p);
+    initial_quark = boost(initial_quark, boost_vector);
+    initial_quark = rotateZ(initial_quark, -phi_p);
+    initial_quark = rotateY(initial_quark, -theta_p);
 
     quark_id = event[q].id();
     quark_pt = quark.pt();
@@ -331,7 +343,7 @@ int main() {
     quark_p = sqrt(quark.modp2());
     quark_theta = acos( event[q].pz() /sqrt(quark.modp2()));
 
-    // std::cout << " initial_quark_pt " << initial_quark.pt() << std::endl;
+    //std::cout << " initial_quark_pt " << initial_quark.pt() << std::endl;
     //std::cout << initial_quark.px() << " " << initial_quark.py() << " " << initial_quark.pz() << " " << initial_quark.e() << std::endl;
 
     //std::cout << " struck quark_pt " << quark.pt() << std::endl;
@@ -342,11 +354,11 @@ int main() {
     int nAnalyze = 0;
     //loop over particles in the event and store them as input for FastJet
     for (int i = 0; i < event.size(); ++i) if (event[i].isFinal()) {
-
+        if(i ==e_index) continue; //remove the highest pT electron
 	// Require visible/charged particles inside detector.
 	if ( !event[i].isVisible()  ) continue;
 	if ( event[i].mother1()==6 ) continue; //remove scattered lepton
-	if(event[i].id()==11) continue;
+	if(  event[i].id()==11) continue;
 	//if (abs(event[i].eta()) > etaMax) continue;
 
 	// Create a PseudoJet from the complete Pythia particle.
@@ -378,6 +390,7 @@ int main() {
     fastjet::ClusterSequence clustSeq(fjInputs_breit, jetDefBF);
     inclusiveJets = clustSeq.inclusive_jets();
     sortedJets    = sorted_by_E(inclusiveJets);
+
     // do lab frame:
     //fastjet::ClusterSequence clustSeq(fjInputs, jetDef);
     //inclusiveJets  = clustSeq.inclusive_jets();
@@ -387,15 +400,27 @@ int main() {
     //loop over jets
     //std::cout << " //////////////////////////// " << std::endl;
     for (unsigned ijet= 0; ijet < sortedJets.size();ijet++) {
-      fastjet::PseudoJet jet = sortedJets[ijet];
+      fastjet::PseudoJet jet_lab = sortedJets[ijet];
 
-      vector<fastjet::PseudoJet> constituents = jet.constituents();
-      nconstituents.push_back(constituents.size());
+      jet_lab_e.push_back(jet_lab.e());
+      jet_lab_eta.push_back(jet_lab.eta());
+      jet_lab_pt.push_back(jet_lab.perp());
+
+
+      fastjet::PseudoJet jet = jet_lab;
+      // fastjet::PseudoJet jet = boost(jet_lab, boost_vector);
+      //jet = rotateZ(jet, -phi_p);
+      //jet = rotateY(jet, -theta_p);
+      
+      nconstituents.push_back(0);//constituents.size());
       n_charged.push_back(0.0);
+      //std::cout << jet.perp() << std::endl;
       double jetpt = jet.perp();
       double jetrap = jet.rap();
       double jetphi = jet.phi_std();
-
+      double theta = jet.pz()/sqrt(jet.modp2()); 
+      jet_theta.push_back(acos(theta));
+      
       jet_pt.push_back( jet.perp());
       jet_phi.push_back( jet.phi_std());
       
@@ -419,17 +444,43 @@ int main() {
       double z_e =  2 * eJ / sqrt(Q2);
       double qT = jet.pt() / z ;                       
       
-     
+          
       jet_qt.push_back(qT);
 
       jet_p.push_back(p_jet);
       jet_e.push_back(eJ);
       jet_z.push_back(z);
-      jet_z_jet.push_back(z_e);
+      
       
       jet_rap.push_back(y_jet);
-      jet_eta.push_back( y_jet);
+      jet_eta.push_back(jet.eta());
 
+            
+      //Plot what would happen if you move up the JES scale or down.
+      double JES = 1.01;
+      fastjet::PseudoJet jet_up = jet_lab*JES;
+      jet_up = boost(jet_up, boost_vector);
+      jet_up = rotateZ(jet_up, -phi_p);
+      jet_up = rotateY(jet_up, -theta_p);
+      Vec4 pJ_up ( jet_up.px(), jet_up.py() ,jet_up.pz() , jet_up.e() );
+      double z_up = Vec4Dot(n, pJ_up) / sqrt(Q2);
+      double qT_up = jet_up.pt() / z_up ;
+      
+      fastjet::PseudoJet jet_down = jet_lab*(1.0/JES);
+      jet_down = boost(jet_down, boost_vector);
+      jet_down = rotateZ(jet_down, -phi_p);
+      jet_down = rotateY(jet_down, -theta_p);
+      Vec4 pJ_down ( jet_down.px(), jet_down.py() ,jet_down.pz() , jet_down.e() );
+      double z_down = Vec4Dot(n, pJ_down) / sqrt(Q2);
+      double qT_down = jet_down.pt() / z_down ;
+      
+      jet_z_up.push_back(z_up);
+      jet_z_down.push_back(z_down);
+      jet_qt_up.push_back(qT_up);
+      jet_qt_down.push_back(qT_down);
+      // std::cout << " zup " << z_up << " z " << z << " zdo " << z_down << std::endl;
+      //std::cout << " qTup " << qT_up << " qt " << qT << " qTdo " << qT_down << std::endl;
+      
     }//end loop over jets
 
 
